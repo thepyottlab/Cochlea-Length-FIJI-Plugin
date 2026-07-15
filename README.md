@@ -1,10 +1,17 @@
 # Cochlear Length FIJI Plugin
 
-Version 2.0.0
-
-This is the Eaton-Peabody Laboratories (EPL) `Measure_line.class` repackaged as a Fiji plugin with a bug fixed and some additional features. The original plugin, equations, and workflow are EPL's work and were shared by the [EPL Histology Core](https://masseyeandear.org/research/otolaryngology/eaton-peabody-laboratories/histology-core).
+This is the Eaton-Peabody Laboratories (EPL) `Measure_line.class` repackaged as a Fiji plugin with a bug fixed and some additional features. The original plugin, equations, and workflow are EPL's work and are available on the website of the [EPL Histology Core](https://masseyeandear.org/research/otolaryngology/eaton-peabody-laboratories/histology-core).
 
 ![Measure line plugin GUI](images/measure-line-gui.png)
+
+Compared to the original `Measure_line.class`, this plugin:
+
+- Fixes the broken macOS plugin path.
+- Adds a GUI that persistently stores the annotation mode (mouse, human, equal division, etc.).
+- Adds an option to put the total cochlea length on the image.
+- Adds options to clear annotations or selections.
+- Remains active while opening and closing multiple images.
+- Adds useful controls for higher-throughput mapping, including opening, closing, and saving images from the GUI with an optional suffix.
 
 ## Install
 
@@ -24,15 +31,6 @@ This is the Eaton-Peabody Laboratories (EPL) `Measure_line.class` repackaged as 
 8. Press **Save image** or **S**.
 
 **Show length** or **M** reports the length of each piece and the total length. **Toggle point mode** or **P** shows the frequency at a specific point; left-click to add a frequency label. Press **Esc** to cancel an unfinished piece, or **Ctrl/Cmd+Z** to undo the latest label, annotation, or stored piece.
-
-## Differences with original Measure_line.class
-
-- Fixed broken macOS plugin path.
-- Added plugin GUI to set annotation mode (mouse, human, equal division, etc.) persistently.
-- Added option to add total cochlea length to the image.
-- Added option to clear annotations or selections.
-- Plugin stays active when opening/closing multiple images.
-- Added various useful controls for higher throughput mapping, such as opening, closing, and saving from the GUI (with an optional suffix).
 
 ## (Optional) batch stitching
 
