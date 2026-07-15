@@ -2,7 +2,7 @@
 
 This is the Eaton-Peabody Laboratories (EPL) `Measure_line.class` repackaged as a Fiji plugin with a bug fixed and some additional features. The original plugin, equations, and workflow are EPL's work and are available on the website of the [EPL Histology Core](https://masseyeandear.org/research/otolaryngology/eaton-peabody-laboratories/histology-core).
 
-![Measure line plugin GUI](images/measure-line-gui.png)
+<img src="images/measure-line-gui.png" alt="Measure line plugin GUI" width="622">
 
 Compared to the original `Measure_line.class`, this plugin:
 
