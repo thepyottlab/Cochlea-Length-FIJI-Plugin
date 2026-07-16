@@ -566,7 +566,7 @@ public class Measure_line implements PlugInFilter, MouseListener,
         for (File child : children) {
             if (child.isDirectory() && !Files.isSymbolicLink(child.toPath())) {
                 collectImages(child, files);
-            } else if (child.isFile()) {
+            } else if (child.isFile() && !child.getName().startsWith("._")) {
                 String extension = extensionOf(child.getName());
                 String suffix = extension.length() > 1 ? extension.substring(1) : "";
                 if (IMAGE_EXTENSIONS.contains(suffix)
