@@ -40,4 +40,4 @@ The batch script automatically places tiles with the same basename before the fi
 2. Restart Fiji.
 3. Choose **Plugins > Macros > Run**, select the macro, then select the image folder.
 
-Tile names must end in `-####`, for example `GEK1756-B-0001.tif`, `GEK1756-B-0002.tif`, and `GEK1756-B-0003.tif`. Files without that four-digit suffix are ignored.
+Tile names must end in `-XXXX` or `_XXXX` (where each `X` is a digit), and the macro searches recursively for matching tiles throughout the selected folder. For example: `GEK1756-B-0001.tif`, `GEK1756-B-0002.tif`, and `GEK1756-B-0003.tif`. Files without a valid four-digit suffix are ignored.

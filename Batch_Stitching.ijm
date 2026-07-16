@@ -31,9 +31,8 @@ root = replace(root, "\\", "/");
 if (!endsWith(root, "/"))
     root = root + "/";
 
-preflightMoves(root);
-organizeTiles(root);
-processGroups(root, minimumCorrelation, overwriteExisting, pseudocolor);
+preflightTree(root);
+processTree(root, minimumCorrelation, overwriteExisting, pseudocolor);
 
 showStatus("Batch stitching finished.");
 print("Automatic batch stitching finished.");
@@ -63,6 +62,19 @@ function preflightMoves(root) {
 }
 
 
+function preflightTree(dir) {
+    preflightMoves(dir);
+    entries = getFileList(dir);
+    Array.sort(entries);
+
+    for (i = 0; i < entries.length; i++) {
+        entry = entries[i];
+        if (endsWith(entry, "/") && entry != ".stitch-input/")
+            preflightTree(dir + entry);
+    }
+}
+
+
 function organizeTiles(root) {
     files = getFileList(root);
     rootGroup = folderName(root);
@@ -85,23 +97,20 @@ function organizeTiles(root) {
 }
 
 
-function processGroups(root, minimumCorrelation, overwriteExisting, pseudocolor) {
-    rootGroup = folderName(root);
-    if (containsGroupTiles(root, rootGroup))
-        processGroup(root, rootGroup, minimumCorrelation, overwriteExisting, pseudocolor);
+function processTree(dir, minimumCorrelation, overwriteExisting, pseudocolor) {
+    organizeTiles(dir);
+    group = folderName(dir);
+    if (containsGroupTiles(dir, group))
+        processGroup(dir, group, minimumCorrelation, overwriteExisting, pseudocolor);
 
-    entries = getFileList(root);
+    entries = getFileList(dir);
     Array.sort(entries);
 
     for (i = 0; i < entries.length; i++) {
         entry = entries[i];
-        if (!endsWith(entry, "/"))
+        if (!endsWith(entry, "/") || entry == ".stitch-input/")
             continue;
-
-        group = substring(entry, 0, lengthOf(entry) - 1);
-        groupDir = root + entry;
-        if (containsGroupTiles(groupDir, group))
-            processGroup(groupDir, group, minimumCorrelation, overwriteExisting, pseudocolor);
+        processTree(dir + entry, minimumCorrelation, overwriteExisting, pseudocolor);
     }
 }
 
@@ -200,7 +209,7 @@ function isTile(name) {
     if (!endsWith(lower, ".tif") && !endsWith(lower, ".tiff"))
         return false;
     stem = File.getNameWithoutExtension(name);
-    return matches(stem, ".+-[0-9]{4}$");
+    return matches(stem, ".+[-_][0-9]{4}$");
 }
 
 
