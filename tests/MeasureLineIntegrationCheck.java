@@ -8,6 +8,7 @@ import ij.measure.Calibration;
 import ij.process.ByteProcessor;
 
 import java.awt.Button;
+import java.awt.Checkbox;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.EventQueue;
@@ -20,11 +21,15 @@ import java.awt.Panel;
 import java.awt.TextArea;
 import java.awt.TextField;
 import java.awt.event.InputEvent;
+import java.awt.event.ItemEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class MeasureLineIntegrationCheck {
@@ -37,6 +42,8 @@ public class MeasureLineIntegrationCheck {
 
         Frame controls = findControls();
         require(controls != null, "Control window did not open without an image");
+        require(Arrays.asList(controls.getKeyListeners()).contains(plugin),
+            "Control window does not receive keyboard shortcuts");
         require(collectLabels(controls).contains("Frequencies (kHz):"),
             "Frequencies label is missing");
         require(!collectLabels(controls).contains("Targets (kHz):"),
@@ -47,10 +54,37 @@ public class MeasureLineIntegrationCheck {
             "Undo shortcut is missing from the mini manual");
         require(collectButtons(controls).contains("Close current image"),
             "Close current image button is missing");
+        require(collectButtons(controls).contains("Load next"),
+            "Load next button is missing");
         require(collectButtons(controls).contains("Toggle point mode"),
             "Toggle point mode button is missing");
+        require(collectButtons(controls).contains("Refresh"),
+            "Refresh button is missing");
+        Checkbox hideTiles = (Checkbox) field(plugin, "hideFourDigitCheckbox");
+        require("Hide tiles".equals(hideTiles.getLabel()),
+            "Hide tiles checkbox label is incorrect: " + hideTiles.getLabel());
+        Checkbox hideMapped = (Checkbox) field(plugin, "hideMappedCheckbox");
+        require("Hide mapped".equals(hideMapped.getLabel()),
+            "Hide mapped checkbox label is incorrect: " + hideMapped.getLabel());
+
+        Path mappedFolder = Files.createTempDirectory("measure-line-mapped-filter");
+        Files.createFile(mappedFolder.resolve("sample.png"));
+        Files.createFile(mappedFolder.resolve("sample-mapped.tif"));
+        Files.createFile(mappedFolder.resolve("other.tif"));
+        setField(plugin, "selectedFolder", mappedFolder.toString());
+        hideMapped.setState(true);
+        plugin.itemStateChanged(new ItemEvent(hideMapped, ItemEvent.ITEM_STATE_CHANGED,
+            hideMapped, ItemEvent.SELECTED));
+        java.awt.List mappedFiles = (java.awt.List) field(plugin, "imageList");
+        require(mappedFiles.getItemCount() == 1 && "other.tif".equals(mappedFiles.getItem(0)),
+            "Hide mapped did not hide the mapped/base pair");
+        mappedFiles.removeAll();
+        hideMapped.setState(false);
+        setField(plugin, "selectedFolder", null);
         require(collectText(controls).contains("P  Toggle point mode"),
             "Point-mode shortcut wording is incorrect");
+        require(collectText(controls).contains("N  Load next image"),
+            "Load-next shortcut is missing from the mini manual");
         require(!collectLabels(controls).contains("(blank = image scale)"),
             "Old scale hint remains");
         assertLeftAligned(controls);
@@ -146,7 +180,19 @@ public class MeasureLineIntegrationCheck {
         require(first.getWindow() == null, "C did not close Fiji's last-focused image");
         require(second.getWindow() != null, "C closed the plugin-attached image instead");
 
-        System.out.println("Measure line undo, focus, layout, frequency, and scale checks passed");
+        second.changes = false;
+        second.close();
+        flushEdt();
+        java.awt.List imageFiles = (java.awt.List) field(plugin, "imageList");
+        imageFiles.add("only.tif");
+        imageFiles.select(0);
+        plugin.keyTyped(new KeyEvent(controls, KeyEvent.KEY_TYPED,
+            System.currentTimeMillis(), 0, KeyEvent.VK_UNDEFINED, 'n'));
+        Label status = (Label) field(plugin, "statusLabel");
+        require("No next image".equals(status.getText()),
+            "N stopped working after the last image closed: " + status.getText());
+
+        System.out.println("Measure line undo, focus, layout, frequency, scale, and navigation checks passed");
         System.exit(0);
     }
 
@@ -186,6 +232,12 @@ public class MeasureLineIntegrationCheck {
         Field field = target.getClass().getDeclaredField(name);
         field.setAccessible(true);
         return field.get(target);
+    }
+
+    private static void setField(Object target, String name, Object value) throws Exception {
+        Field field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 
     private static int intField(Object target, String name) throws Exception {

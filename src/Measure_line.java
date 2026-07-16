@@ -153,12 +153,15 @@ public class Measure_line implements PlugInFilter, MouseListener,
     private Button clearAllButton;
     private Button chooseFolderButton;
     private Button loadButton;
+    private Button loadNextButton;
     private Button closeImageButton;
     private Button saveButton;
+    private Button refreshButton;
     private TextField folderField;
     private TextField suffixField;
     private Checkbox addLengthCheckbox;
     private Checkbox hideFourDigitCheckbox;
+    private Checkbox hideMappedCheckbox;
     private java.awt.List imageList;
     private String selectedFolder;
     private File activeSourceFile;
@@ -277,6 +280,7 @@ public class Measure_line implements PlugInFilter, MouseListener,
         controls = new Frame("Measure line");
         controls.setLayout(new GridBagLayout());
         controls.setResizable(false);
+        controls.addKeyListener(this);
         controls.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent event) {
@@ -299,10 +303,11 @@ public class Measure_line implements PlugInFilter, MouseListener,
             + "M  Show length measurements\n"
             + "P  Toggle point mode\n"
             + "S  Save (optionally with suffix)\n"
+            + "N  Load next image\n"
             + "C  Close current image\n"
             + "Esc  Cancel current segment\n"
             + "Ctrl/Cmd+Z  Undo last action",
-            7, 46, TextArea.SCROLLBARS_NONE);
+            8, 46, TextArea.SCROLLBARS_NONE);
         help.setEditable(false);
         c.gridy++;
         c.insets = new Insets(0, 8, 8, 8);
@@ -396,9 +401,13 @@ public class Measure_line implements PlugInFilter, MouseListener,
         folderField = new TextField("", 24);
         folderField.setEditable(false);
         folderPanel.add(folderField);
-        hideFourDigitCheckbox = new Checkbox("Hide images with 4-digit suffix", true);
+        hideFourDigitCheckbox = new Checkbox("Hide tiles", true);
         hideFourDigitCheckbox.addItemListener(this);
         folderPanel.add(hideFourDigitCheckbox);
+        hideMappedCheckbox = new Checkbox("Hide mapped", false);
+        hideMappedCheckbox.addItemListener(this);
+        folderPanel.add(hideMappedCheckbox);
+        refreshButton = addButton(folderPanel, "Refresh");
         c.gridy++;
         c.insets = new Insets(2, 2, 2, 8);
         controls.add(folderPanel, c);
@@ -411,6 +420,7 @@ public class Measure_line implements PlugInFilter, MouseListener,
 
         Panel fileButtons = new Panel(new FlowLayout(FlowLayout.LEFT, 6, 2));
         loadButton = addButton(fileButtons, "Load selected");
+        loadNextButton = addButton(fileButtons, "Load next");
         closeImageButton = addButton(fileButtons, "Close current image");
         fileButtons.add(new Label("Save suffix:"));
         suffixField = new TextField("-mapped", 12);
@@ -440,6 +450,7 @@ public class Measure_line implements PlugInFilter, MouseListener,
     private Button addButton(Panel panel, String label) {
         Button button = new Button(label);
         button.addActionListener(this);
+        button.addKeyListener(this);
         panel.add(button);
         return button;
     }
@@ -455,7 +466,8 @@ public class Measure_line implements PlugInFilter, MouseListener,
 
     @Override
     public void itemStateChanged(ItemEvent event) {
-        if (event.getSource() == hideFourDigitCheckbox) {
+        if (event.getSource() == hideFourDigitCheckbox
+                || event.getSource() == hideMappedCheckbox) {
             refreshImageList(null);
             return;
         }
@@ -485,8 +497,12 @@ public class Measure_line implements PlugInFilter, MouseListener,
         Object source = event.getSource();
         if (source == chooseFolderButton) {
             chooseFolder();
+        } else if (source == refreshButton) {
+            refreshImageList(imageList.getSelectedItem());
         } else if (source == loadButton || source == imageList) {
             loadSelectedImage();
+        } else if (source == loadNextButton) {
+            loadNextImage();
         } else if (source == closeImageButton) {
             closeCurrentImage();
         } else if (source == saveButton) {
@@ -546,8 +562,23 @@ public class Measure_line implements PlugInFilter, MouseListener,
                 return relativePath(first).compareToIgnoreCase(relativePath(second));
             }
         });
+        Set<String> hiddenMappedStems = new HashSet<String>();
+        String mappedSuffix = suffixField.getText().trim();
+        if (hideMappedCheckbox.getState() && mappedSuffix.length() > 0) {
+            for (File file : files) {
+                String stem = fileStem(file);
+                if (stem.endsWith(mappedSuffix)) {
+                    hiddenMappedStems.add(stemKey(file, stem));
+                    hiddenMappedStems.add(stemKey(file,
+                        stem.substring(0, stem.length() - mappedSuffix.length())));
+                }
+            }
+        }
         for (File file : files) {
             if (hideFourDigitCheckbox.getState() && FOUR_DIGIT_SUFFIX.matcher(file.getName()).matches()) {
+                continue;
+            }
+            if (hiddenMappedStems.contains(stemKey(file, fileStem(file)))) {
                 continue;
             }
             String relative = relativePath(file);
@@ -621,6 +652,16 @@ public class Measure_line implements PlugInFilter, MouseListener,
         setStatus("Active: " + opened.getTitle());
     }
 
+    private void loadNextImage() {
+        int next = imageList.getSelectedIndex() + 1;
+        if (next >= imageList.getItemCount()) {
+            setStatus(imageList.getItemCount() == 0 ? "No images to load" : "No next image");
+            return;
+        }
+        imageList.select(next);
+        loadSelectedImage();
+    }
+
     private void closeCurrentImage() {
         ImagePlus current = WindowManager.getCurrentImage();
         if (current == null) {
@@ -664,7 +705,6 @@ public class Measure_line implements PlugInFilter, MouseListener,
         }
         if (saveByExtension(target, outputExtension)) {
             image.changes = false;
-            refreshImageList(isInsideSelectedFolder(target) ? relativePath(target) : null);
             setStatus("Saved: " + target.getName());
         } else {
             IJ.error("Measure line", "Could not save " + target.getName());
@@ -701,23 +741,21 @@ public class Measure_line implements PlugInFilter, MouseListener,
         return dot < 0 ? "" : name.substring(dot).toLowerCase();
     }
 
+    private static String fileStem(File file) {
+        String name = file.getName();
+        String extension = extensionOf(name);
+        return extension.length() == 0 ? name : name.substring(0, name.length() - extension.length());
+    }
+
+    private static String stemKey(File file, String stem) {
+        return new File(file.getParentFile(), stem).getAbsolutePath();
+    }
+
     private static boolean sameFile(File first, File second) {
         try {
             return first.getCanonicalFile().equals(second.getCanonicalFile());
         } catch (Exception ignored) {
             return first.getAbsoluteFile().equals(second.getAbsoluteFile());
-        }
-    }
-
-    private boolean isInsideSelectedFolder(File file) {
-        if (selectedFolder == null) {
-            return false;
-        }
-        try {
-            String root = new File(selectedFolder).getCanonicalPath() + File.separator;
-            return file.getCanonicalPath().startsWith(root);
-        } catch (Exception ignored) {
-            return false;
         }
     }
 
@@ -1399,7 +1437,8 @@ public class Measure_line implements PlugInFilter, MouseListener,
     @Override
     public void imageOpened(ImagePlus openedImage) {
         if (activeInstance == this && attachToImage(openedImage)) {
-            showControls();
+            openedImage.getWindow().toFront();
+            openedImage.getCanvas().requestFocus();
             setStatus("Active: " + openedImage.getTitle());
         }
     }
@@ -1423,6 +1462,9 @@ public class Measure_line implements PlugInFilter, MouseListener,
             setStatus("Active: " + current.getTitle());
         } else {
             setStatus("Waiting for the next image");
+            if (controls != null) {
+                controls.requestFocus();
+            }
         }
     }
 
@@ -1448,6 +1490,9 @@ public class Measure_line implements PlugInFilter, MouseListener,
                 break;
             case 's':
                 saveImage();
+                break;
+            case 'n':
+                loadNextImage();
                 break;
             case 'c':
                 closeCurrentImage();
